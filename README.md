@@ -48,7 +48,7 @@ Open http://localhost:3000.
 
 1. In the Flutterwave dashboard, use **Test mode** and copy your public and secret keys (Settings > API Keys) into `FLW_PUBLIC_KEY` and `FLW_SECRET_KEY`.
 2. Under Settings > Webhooks, set the URL to `https://YOUR-DOMAIN/api/webhooks/flutterwave` and a **secret hash**; put the same value in `FLW_SECRET_HASH`.
-3. Set `NEXT_PUBLIC_SITE_URL`, and set both `FLW_CURRENCY` and `NEXT_PUBLIC_CURRENCY` to the same code. The default is `UGX`; make sure that currency is enabled on your Flutterwave account.
+3. Set `NEXT_PUBLIC_SITE_URL` to the browser-accessible app URL (for local testing use `http://localhost:3000`; use your deployed HTTPS URL in production), and set both `FLW_CURRENCY` and `NEXT_PUBLIC_CURRENCY` to the same code. The default is `UGX`; make sure that currency is enabled on your Flutterwave account.
 
 Checkout: `POST /api/orders` re-prices the cart from MongoDB and creates a pending order. The Flutterwave React SDK opens the payment modal using the server-calculated amount. The completion page and webhook verify transactions server-side against Flutterwave and only mark an order `paid` if status, reference, currency and amount match. Webhooks can't reach your machine in development; use a tunnel (ngrok, cloudflared) to test them locally.
 

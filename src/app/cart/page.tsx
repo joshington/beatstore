@@ -14,6 +14,7 @@ interface PaymentDetails {
   currency: string;
   email: string;
   publicKey: string;
+  redirectUrl: string;
 }
 
 export default function CartPage() {
@@ -31,6 +32,7 @@ export default function CartPage() {
     tx_ref: payment?.txRef ?? "",
     amount: payment?.amount ?? 0,
     currency: payment?.currency ?? storeCurrency(),
+    redirect_url: payment?.redirectUrl,
     payment_options: "card,mobilemoney,ussd",
     customer: {
       email: payment?.email ?? "",
@@ -102,7 +104,8 @@ export default function CartPage() {
         typeof body.amount === "number" &&
         typeof body.currency === "string" &&
         typeof body.email === "string" &&
-        typeof body.publicKey === "string"
+        typeof body.publicKey === "string" &&
+        typeof body.redirectUrl === "string"
       ) {
         setPayment(body);
         setStatus("idle");

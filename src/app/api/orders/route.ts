@@ -113,6 +113,7 @@ export async function POST(req: Request) {
     console.error("Flutterwave public and secret keys must be configured.");
     return NextResponse.json({ error: "Payments are not configured. Please contact the store." }, { status: 503 });
   }
+  const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? new URL(req.url).origin).replace(/\/$/, "");
   return NextResponse.json({
     id,
     txRef,
@@ -120,6 +121,7 @@ export async function POST(req: Request) {
     currency: FLW_CURRENCY,
     email: session.email,
     publicKey,
+    redirectUrl: `${siteUrl}/checkout/complete`,
     ...totals,
   }, { status: 201 });
 }
