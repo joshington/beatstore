@@ -1,5 +1,13 @@
-export function money(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
+import { currencyFractionDigits, minorToMajor, storeCurrency } from "./currency";
+
+export function money(cents: number, currency = storeCurrency()): string {
+  const fractionDigits = currencyFractionDigits(currency);
+  return new Intl.NumberFormat("en-UG", {
+    style: "currency",
+    currency,
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  }).format(minorToMajor(cents, currency));
 }
 
 export function duration(sec: number): string {

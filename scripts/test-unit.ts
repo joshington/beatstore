@@ -13,6 +13,7 @@ import {
   downloadFilename,
 } from "../src/lib/downloads";
 import { computeTotals } from "../src/lib/pricing";
+import { currencyFractionDigits, majorToMinor, minorToMajor } from "../src/lib/currency";
 
 let passed = 0;
 function test(name: string, fn: () => void) {
@@ -81,6 +82,14 @@ test("bulk deal: every 3rd (cheapest) track is free", () => {
   assert.equal(computeTotals([t(3000), t(5500), t(12500)]).totalCents, 18000);
   assert.equal(computeTotals([t(3000), t(3000), t(3000), t(3000), t(3000), t(3000)]).totalCents, 12000);
   assert.equal(computeTotals([{ kind: "soundkit" as const, priceCents: 1000 }, t(3000), t(3000)]).totalCents, 7000);
+});
+test("currency amounts support UGX whole shillings and USD cents", () => {
+  assert.equal(currencyFractionDigits("UGX"), 0);
+  assert.equal(currencyFractionDigits("USD"), 2);
+  assert.equal(minorToMajor(125_000, "UGX"), 125_000);
+  assert.equal(majorToMinor(125_000, "UGX"), 125_000);
+  assert.equal(minorToMajor(12_500, "USD"), 125);
+  assert.equal(majorToMinor(125, "USD"), 12_500);
 });
 
 async function atest(name: string, fn: () => Promise<void>) {

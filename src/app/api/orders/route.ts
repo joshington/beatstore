@@ -8,7 +8,8 @@ import { License } from "@/models/License";
 import { SoundKit } from "@/models/SoundKit";
 import { Order } from "@/models/Order";
 import { computeTotals } from "@/lib/pricing";
-import { FLW_CURRENCY, initPayment } from "@/lib/flutterwave";
+import { FLW_CURRENCY } from "@/lib/flutterwave";
+import { minorToMajor } from "@/lib/currency";
 import { makeOrderToken, sanitizeDeliver } from "@/lib/downloads";
 import { fulfillOrder } from "@/lib/fulfillment";
 
@@ -26,9 +27,9 @@ const schema = z.object({
 });
 
 /**
- * Creates a pending order and a Flutterwave hosted payment link.
+ * Creates a pending order for the client-side Flutterwave modal.
  * Prices are always re-read from the database, never trusted from the client.
- * Returns { id, link } for paid carts, or { id, free: true } when the total is zero.
+ * Returns checkout details for paid carts, or { id, free: true } when the total is zero.
  */
 export async function POST(req: Request) {
   const session = getSession();
@@ -106,21 +107,19 @@ export async function POST(req: Request) {
     );
   }
 
-  try {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? new URL(req.url).origin;
-    const link = await initPayment({
-      txRef,
-      amount: totals.totalCents / 100,
-      currency: FLW_CURRENCY,
-      redirectUrl: `${siteUrl}/checkout/complete`,
-      email: session.email,
-      title: process.env.NEXT_PUBLIC_SITE_NAME ?? "Beat Store",
-      orderId: id,
-    });
-    return NextResponse.json({ id, link, ...totals }, { status: 201 });
-  } catch (err) {
-    console.error(err);
+  const publicKey = process.env.FLW_PUBLIC_KEY;
+  if (!publicKey || !process.env.FLW_SECRET_KEY) {
     await Order.updateOne({ _id: order._id }, { status: "failed" });
-    return NextResponse.json({ error: "Could not start payment. Please try again." }, { status: 502 });
+    console.error("Flutterwave public and secret keys must be configured.");
+    return NextResponse.json({ error: "Payments are not configured. Please contact the store." }, { status: 503 });
   }
+  return NextResponse.json({
+    id,
+    txRef,
+    amount: minorToMajor(totals.totalCents, FLW_CURRENCY),
+    currency: FLW_CURRENCY,
+    email: session.email,
+    publicKey,
+    ...totals,
+  }, { status: 201 });
 }

@@ -49,7 +49,7 @@ async function main() {
     items,
     subtotalCents: total,
     totalCents: total,
-    currency: "USD",
+    currency: process.env.NEXT_PUBLIC_CURRENCY ?? process.env.FLW_CURRENCY ?? "UGX",
     txRef: `test_${Date.now()}`,
     status: "paid",
     paidAt: new Date(),

@@ -2,8 +2,19 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { closePaymentModal, useFlutterwave } from "flutterwave-react-v3";
 import { useCart } from "@/components/CartContext";
 import { money } from "@/lib/format";
+import { storeCurrency } from "@/lib/currency";
+
+interface PaymentDetails {
+  id: string;
+  txRef: string;
+  amount: number;
+  currency: string;
+  email: string;
+  publicKey: string;
+}
 
 export default function CartPage() {
   const cart = useCart();
@@ -11,8 +22,28 @@ export default function CartPage() {
   const [status, setStatus] = useState<"idle" | "busy" | "free" | "error">("idle");
   const [error, setError] = useState("");
   const [downloadPath, setDownloadPath] = useState("");
+  const [payment, setPayment] = useState<PaymentDetails | null>(null);
   const [account, setAccount] = useState<{ email: string; role: string } | null>(null);
   const [checkingAccount, setCheckingAccount] = useState(true);
+
+  const handleFlutterPayment = useFlutterwave({
+    public_key: payment?.publicKey ?? "",
+    tx_ref: payment?.txRef ?? "",
+    amount: payment?.amount ?? 0,
+    currency: payment?.currency ?? storeCurrency(),
+    payment_options: "card,mobilemoney,ussd",
+    customer: {
+      email: payment?.email ?? "",
+      phone_number: "",
+      name: payment?.email ?? "",
+    },
+    meta: payment ? { order_id: payment.id } : undefined,
+    customizations: {
+      title: process.env.NEXT_PUBLIC_SITE_NAME ?? "Beat Store",
+      description: "Purchase beats and sound kits",
+      logo: "",
+    },
+  });
 
   useEffect(() => {
     fetch("/api/auth")
@@ -27,6 +58,26 @@ export default function CartPage() {
 
   async function checkout(e: FormEvent) {
     e.preventDefault();
+    if (payment) {
+      if (!payment.publicKey) {
+        setError("Payments are not configured. Please contact the store.");
+        return;
+      }
+      handleFlutterPayment({
+        callback: (response) => {
+          closePaymentModal();
+          const query = new URLSearchParams({
+            status: response.status,
+            tx_ref: String(response.tx_ref),
+            transaction_id: String(response.transaction_id),
+          });
+          window.location.assign(`/checkout/complete?${query.toString()}`);
+        },
+        onClose: () => {},
+      });
+      return;
+    }
+
     setStatus("busy");
     setError("");
     try {
@@ -38,15 +89,23 @@ export default function CartPage() {
         }),
       });
       const body = await res.json().catch(() => ({}));
-      if (res.ok && body.link) {
-        // Hand off to Flutterwave's hosted checkout. The cart is cleared once payment is confirmed.
-        window.location.href = body.link;
-        return;
-      }
       if (res.ok && body.free) {
         cart.clear();
         setDownloadPath(body.downloadPath ?? "");
         setStatus("free");
+        return;
+      }
+      if (
+        res.ok &&
+        typeof body.id === "string" &&
+        typeof body.txRef === "string" &&
+        typeof body.amount === "number" &&
+        typeof body.currency === "string" &&
+        typeof body.email === "string" &&
+        typeof body.publicKey === "string"
+      ) {
+        setPayment(body);
+        setStatus("idle");
         return;
       }
       setError(body.error ?? "Could not start checkout. Please try again.");
@@ -102,8 +161,9 @@ export default function CartPage() {
             <form onSubmit={checkout} className="form">
               <p className="muted">Signed in as {account.email}. Order updates and download links will be sent to this address.</p>
               <button className="btn" disabled={status === "busy"}>
-                {status === "busy" ? "REDIRECTING…" : "CONTINUE TO CHECKOUT"}
+                {status === "busy" ? "PREPARING CHECKOUT…" : payment ? "PAY WITH FLUTTERWAVE" : "CONTINUE TO CHECKOUT"}
               </button>
+              {payment && <p className="muted">Checkout total: {money(cart.totalCents)} {payment.currency}. Select the button to open Flutterwave&apos;s secure payment window.</p>}
               {error && <p className="err">{error}</p>}
             </form>
           ) : (

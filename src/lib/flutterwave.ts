@@ -2,21 +2,20 @@ import { createHmac, timingSafeEqual } from "crypto";
 import { connectDB } from "./mongodb";
 import { Order } from "@/models/Order";
 import { fulfillOrder } from "./fulfillment";
+import { minorToMajor } from "./currency";
 
 const API = "https://api.flutterwave.com/v3";
-
-export const FLW_CURRENCY = process.env.FLW_CURRENCY ?? "USD";
+const publicCurrency = process.env.NEXT_PUBLIC_CURRENCY;
+const serverCurrency = process.env.FLW_CURRENCY;
+if (publicCurrency && serverCurrency && publicCurrency !== serverCurrency) {
+  throw new Error("NEXT_PUBLIC_CURRENCY and FLW_CURRENCY must match.");
+}
+export const FLW_CURRENCY = publicCurrency ?? serverCurrency ?? "UGX";
 
 function secretKey(): string {
   const key = process.env.FLW_SECRET_KEY;
   if (!key) throw new Error("FLW_SECRET_KEY is not set.");
   return key;
-}
-
-interface InitResponse {
-  status: string;
-  message: string;
-  data?: { link?: string };
 }
 
 interface VerifyResponse {
@@ -29,35 +28,6 @@ interface VerifyResponse {
     amount: number;
     currency: string;
   };
-}
-
-export async function initPayment(params: {
-  txRef: string;
-  amount: number;
-  currency: string;
-  redirectUrl: string;
-  email: string;
-  title: string;
-  orderId: string;
-}): Promise<string> {
-  const res = await fetch(`${API}/payments`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${secretKey()}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      tx_ref: params.txRef,
-      amount: params.amount,
-      currency: params.currency,
-      redirect_url: params.redirectUrl,
-      customer: { email: params.email },
-      meta: { order_id: params.orderId },
-      customizations: { title: params.title },
-    }),
-  });
-  const body = (await res.json().catch(() => null)) as InitResponse | null;
-  if (!res.ok || body?.status !== "success" || !body.data?.link) {
-    throw new Error(`Flutterwave init failed: ${body?.message ?? res.status}`);
-  }
-  return body.data.link;
 }
 
 export async function verifyTransaction(transactionId: string | number): Promise<VerifyResponse> {
@@ -93,7 +63,7 @@ export async function settleOrder(txRef: string, transactionId: string | number)
     d.status === "successful" &&
     d.tx_ref === txRef &&
     d.currency === order.currency &&
-    Number(d.amount) + 0.001 >= order.totalCents / 100;
+    Number(d.amount) + 0.001 >= minorToMajor(order.totalCents, order.currency);
 
   if (!matches) {
     if (d.status === "failed") await Order.updateOne({ _id: order._id, status: "pending" }, { status: "failed" });

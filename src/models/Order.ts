@@ -19,7 +19,7 @@ const OrderSchema = new Schema(
     subtotalCents: { type: Number, required: true },
     discountCents: { type: Number, default: 0 },
     totalCents: { type: Number, required: true },
-    currency: { type: String, default: "USD" },
+    currency: { type: String, default: "UGX" },
     txRef: { type: String, unique: true, sparse: true },
     flwTransactionId: { type: String, default: "" },
     paidAt: { type: Date },

@@ -22,7 +22,7 @@ export async function PATCH(req: Request) {
   const parsed = z.object({
     prices: z.array(z.object({
       slug: z.string().min(1),
-      priceCents: z.number().int().min(0).max(10_000_000),
+      priceCents: z.number().int().min(0).max(1_000_000_000),
     })).min(1).max(50),
   }).safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Enter valid prices." }, { status: 400 });

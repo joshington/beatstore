@@ -35,7 +35,8 @@ Open http://localhost:3000.
 | `NEXT_PUBLIC_SITE_URL` | Public URL of the site. Used in e-mail links and the Flutterwave return URL |
 | `SESSION_SECRET` | Required: random secret (at least 32 characters) used to sign account sessions. Generate with `openssl rand -hex 32` |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Set both to enable the administrator sign-in at `/admin` |
-| `FLW_SECRET_KEY`, `FLW_SECRET_HASH`, `FLW_CURRENCY` | Flutterwave (see below) |
+| `FLW_PUBLIC_KEY`, `FLW_SECRET_KEY`, `FLW_SECRET_HASH` | Flutterwave API keys and webhook hash (see below) |
+| `FLW_CURRENCY`, `NEXT_PUBLIC_CURRENCY` | Store/payment currency; set both to the same code (default `UGX`) |
 | `DOWNLOAD_SECRET` | Long random string that signs download links. Generate: `openssl rand -hex 32`. **Required.** Changing it invalidates all issued links |
 | `DOWNLOAD_LINK_DAYS` | How long links work after payment (default 14) |
 | `DOWNLOAD_MAX_PER_ITEM` | Download cap per purchased item (default 10) |
@@ -45,13 +46,15 @@ Open http://localhost:3000.
 
 ## Flutterwave setup
 
-1. In the Flutterwave dashboard, use **Test mode** and copy your secret key (Settings > API Keys) into `FLW_SECRET_KEY`.
+1. In the Flutterwave dashboard, use **Test mode** and copy your public and secret keys (Settings > API Keys) into `FLW_PUBLIC_KEY` and `FLW_SECRET_KEY`.
 2. Under Settings > Webhooks, set the URL to `https://YOUR-DOMAIN/api/webhooks/flutterwave` and a **secret hash**; put the same value in `FLW_SECRET_HASH`.
-3. Set `NEXT_PUBLIC_SITE_URL` and `FLW_CURRENCY` (default `USD`; the currency must be enabled on your account).
+3. Set `NEXT_PUBLIC_SITE_URL`, and set both `FLW_CURRENCY` and `NEXT_PUBLIC_CURRENCY` to the same code. The default is `UGX`; make sure that currency is enabled on your Flutterwave account.
 
-How it works: `POST /api/orders` re-prices the cart from MongoDB, saves a pending order and gets a hosted payment link. After payment the customer returns to `/checkout/complete`; that page and the webhook both re-verify the transaction with Flutterwave and only mark the order `paid` if status, reference, currency and amount match. Webhooks can't reach your machine in development; use a tunnel (ngrok, cloudflared) to test them locally.
+Checkout: `POST /api/orders` re-prices the cart from MongoDB and creates a pending order. The Flutterwave React SDK opens the payment modal using the server-calculated amount. The completion page and webhook verify transactions server-side against Flutterwave and only mark an order `paid` if status, reference, currency and amount match. Webhooks can't reach your machine in development; use a tunnel (ngrok, cloudflared) to test them locally.
 
 Customers create an account or sign in at `/account` before checkout. The order API independently checks the signed-in session and uses that account's e-mail for receipts and delivery. Set `ADMIN_EMAIL` and `ADMIN_PASSWORD` to enable administrator sign-in; use `/admin` to upload beats and preview/deliverable files, change shared license prices, and view paid revenue, customer counts and play statistics. Uploads use the configured local or S3 storage driver.
+
+Prices are stored as the currency's minor units. UGX has no fractional unit, so dashboard prices should be entered as whole UGX amounts. Existing catalog values are not automatically converted when changing from USD; review and update license, sound-kit and service prices before accepting UGX payments. Historical revenue is shown separately by currency.
 
 ## Delivery of purchased files
 

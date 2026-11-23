@@ -2,9 +2,10 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { money } from "@/lib/format";
+import { currencyFractionDigits, majorToMinor, minorToMajor, storeCurrency } from "@/lib/currency";
 
 interface Summary {
-  revenueCents: number;
+  revenues: { currency: string; totalMinor: number }[];
   paidOrders: number;
   users: number;
   tracks: number;
@@ -58,7 +59,10 @@ export default function AdminDashboard() {
     ]);
     setSummary(summaryData);
     setLicenses(licenseData);
-    setPrices(Object.fromEntries(licenseData.map((license: LicensePrice) => [license.slug, (license.priceCents / 100).toFixed(2)])));
+    setPrices(Object.fromEntries(licenseData.map((license: LicensePrice) => [
+      license.slug,
+      String(minorToMajor(license.priceCents)),
+    ])));
     setTracks(trackData);
   }
 
@@ -90,10 +94,12 @@ export default function AdminDashboard() {
     setBusy(true);
     setPriceStatus("");
     try {
-      const payload = licenses.map(({ slug }) => {
-        const dollars = Number(prices[slug]);
-        if (!Number.isFinite(dollars) || dollars < 0 || dollars > 100_000) throw new Error("Enter valid non-negative prices.");
-        return { slug, priceCents: Math.round(dollars * 100) };
+      const payload = licenses.filter((license) => !license.exclusive).map(({ slug }) => {
+        const amount = Number(prices[slug]);
+        if (!Number.isFinite(amount) || amount < 0 || amount > 1_000_000_000) {
+          throw new Error("Enter valid non-negative prices.");
+        }
+        return { slug, priceCents: majorToMinor(amount) };
       });
       const response = await fetch("/api/admin/licenses", {
         method: "PATCH",
@@ -128,7 +134,14 @@ export default function AdminDashboard() {
       {loadingError && <p className="err">{loadingError}</p>}
       {summary && (
         <section className="admin-stats" aria-label="Store statistics">
-          <article><span>Revenue generated</span><strong>{money(summary.revenueCents)}</strong></article>
+          <article>
+            <span>Revenue generated</span>
+            {summary.revenues.length
+              ? summary.revenues.map((revenue) => (
+                  <strong key={revenue.currency}>{money(revenue.totalMinor, revenue.currency)}</strong>
+                ))
+              : <strong>{money(0)}</strong>}
+          </article>
           <article><span>Customers</span><strong>{summary.users}</strong></article>
           <article><span>Beats in store</span><strong>{summary.tracks}</strong></article>
           <article><span>Paid orders</span><strong>{summary.paidOrders}</strong></article>
@@ -164,16 +177,17 @@ export default function AdminDashboard() {
         <div className="admin-side">
           <section className="admin-card">
             <h2>License pricing</h2>
-            <p className="muted">Prices apply to all beats, except beats marked free.</p>
+            <p className="muted">Prices are in {storeCurrency()} and apply to all beats, except beats marked free.</p>
             <form className="form price-form" onSubmit={savePrices}>
               {licenses.filter((license) => !license.exclusive).map((license) => (
                 <label key={license.slug}>
                   {license.name}
-                  <span className="price-input"><span>$</span><input
+                  <span className="price-input">
+                    <span>{storeCurrency()}</span><input
                     type="number"
                     min="0"
-                    max="100000"
-                    step="0.01"
+                    max="1000000000"
+                    step={10 ** -currencyFractionDigits()}
                     value={prices[license.slug] ?? ""}
                     onChange={(event) => setPrices((current) => ({ ...current, [license.slug]: event.target.value }))}
                     required

@@ -15,7 +15,7 @@ export async function GET() {
   const [revenue, paidOrders, users, tracks, topTracks] = await Promise.all([
     Order.aggregate([
       { $match: { status: "paid" } },
-      { $group: { _id: null, total: { $sum: "$totalCents" } } },
+      { $group: { _id: "$currency", totalMinor: { $sum: "$totalCents" } } },
     ]),
     Order.countDocuments({ status: "paid" }),
     User.countDocuments(),
@@ -23,7 +23,7 @@ export async function GET() {
     Track.find().sort({ plays: -1 }).limit(5).select("title plays").lean(),
   ]);
   return NextResponse.json({
-    revenueCents: revenue[0]?.total ?? 0,
+    revenues: revenue.map((entry) => ({ currency: entry._id ?? "UGX", totalMinor: entry.totalMinor })),
     paidOrders,
     users,
     tracks,
