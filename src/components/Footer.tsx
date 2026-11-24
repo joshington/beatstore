@@ -1,14 +1,26 @@
 import Link from "next/link";
 import SubscribeForm from "./SubscribeForm";
-
-const SITE = process.env.NEXT_PUBLIC_SITE_NAME ?? "YOUR BEATS";
+import { LOGO, SITE_NAME } from "@/lib/brand";
 
 export default function Footer() {
   return (
     <footer className="site-footer">
       <div className="container footer-grid">
+        <div className="footer-brand">
+          <Link href="/" aria-label={`${SITE_NAME} home`}>
+            <img
+              className="footer-logo"
+              src={LOGO.full.src}
+              width={LOGO.full.width}
+              height={LOGO.full.height}
+              alt={SITE_NAME}
+              loading="lazy"
+            />
+          </Link>
+          <p className="muted">Beats, sound kits and production services.</p>
+        </div>
         <div>
-          <h4>{SITE}</h4>
+          <h4>Explore</h4>
           <ul>
             <li><Link href="/">Home</Link></li>
             <li><Link href="/music/tracks">Tracks</Link></li>
@@ -26,7 +38,7 @@ export default function Footer() {
         </div>
         <SubscribeForm />
       </div>
-      <p className="copy">&copy; {new Date().getFullYear()} {SITE}. All rights reserved.</p>
+      <p className="copy">&copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.</p>
     </footer>
   );
 }
